@@ -10,9 +10,12 @@ import {
   Box,
   Typography,
   styled,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
-import { FormRule, UserFormData } from "../types/form.type";
+import { UserFormData } from "../types/form.type";
 import { useFormWithRules } from "../hooks/useFormWithRules.hook";
+import { FormRule } from "../hooks/useFormWithRules.type";
 
 const FormContainer = styled("form")`
   max-width: 600px;
@@ -54,14 +57,31 @@ const countries = [
 const UserForm: React.FC = () => {
   const rules: FormRule<UserFormData>[] = [
     {
-      field: "lastName",
-      condition: (value) => value === "Charly",
+      condition: {
+        fields: "isBrother",
+        evaluate: (values) => !!values.isBrother,
+      },
       action: ({ setValue }) => {
-        setValue("firstName", "LEBG");
-        setValue("age", 27);
-        setValue("lifestyle", "Actif");
-        setValue("civility", "M.");
-        setValue("country", "France");
+        setValue("firstName", `SALUT MON BRO MDR CA VA ? MOI NIQUEL`.trim());
+      },
+    },
+
+    {
+      condition: {
+        fields: "isBrother",
+        evaluate: (values) => !values.isBrother,
+      },
+      action: ({ setValue }) => {
+        setValue("firstName", `Pas ouf`.trim());
+      },
+    },
+    {
+      condition: {
+        fields: ["age", "country"],
+        evaluate: (values) => values.age! > 18 && values.country == "France",
+      },
+      action: ({ setValue }) => {
+        setValue("firstName", `AH LE LOOSER MDR`.trim());
       },
     },
   ];
@@ -90,6 +110,19 @@ const UserForm: React.FC = () => {
       <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4 }}>
         Formulaire d'inscription
       </Typography>
+
+      <FormField>
+        <Controller
+          name="isBrother"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={<Switch {...field} />}
+              label="Est-ce que t'es mon bro ?"
+            />
+          )}
+        />
+      </FormField>
 
       <FormField>
         <Controller

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { UseFormProps, UseFormReturn, useForm } from "react-hook-form";
+import { Path, UseFormProps, UseFormReturn, useForm } from "react-hook-form";
 import { useEffect } from "react";
-import { FormRule } from "../types/form.type";
+import { FormRule } from "./useFormWithRules.type";
 
 interface Props<TFieldValues extends Record<string, any>, TContext = any>
   extends UseFormProps<TFieldValues, TContext> {
@@ -21,22 +21,48 @@ export const useFormWithRules = <
   const { watch, getValues, setValue } = methods;
 
   useEffect(() => {
-    const subscriptions = props.rules!.map((rule) => {
-      return watch((value, { name }) => {
-        const fieldValue = value[rule.field as keyof typeof value];
-        if (name === rule.field && rule.condition?.(fieldValue)) {
-          rule.action({
-            getValues,
-            setValue,
-            value: fieldValue,
-          });
+    if (!props.rules?.length) return;
+
+    // Get all watched fields
+    const allWatchFields = new Set(
+      props.rules.flatMap((rule) =>
+        Array.isArray(rule.condition.fields)
+          ? rule.condition.fields
+          : [rule.condition.fields]
+      )
+    );
+
+    const subscription = watch((formValue, { name }) => {
+      if (!name || !allWatchFields.has(name)) return;
+
+      // Get all values from watched fields
+      const watchValues = Array.from(allWatchFields).reduce((acc, field) => {
+        acc[field] = formValue[field as keyof typeof formValue];
+        return acc;
+      }, {} as Partial<Record<keyof TFieldValues, any>>);
+
+      // Evaluate each rule
+      props.rules!.forEach((rule) => {
+        // If single field, map it to array
+        const fieldsToCheck = Array.isArray(rule.condition.fields)
+          ? rule.condition.fields
+          : [rule.condition.fields];
+
+        // Check if the field is in the list of fields to check
+        if (fieldsToCheck.includes(name as Path<TFieldValues>)) {
+          // Evaluate the condition with all watched values
+          if (rule.condition.evaluate(watchValues)) {
+            rule.action({
+              getValues,
+              setValue,
+              watchValues,
+            });
+          }
         }
       });
     });
 
-    return () => {
-      subscriptions.forEach((subscription) => subscription.unsubscribe());
-    };
+    return () => subscription.unsubscribe();
   }, [watch, getValues, setValue, props.rules]);
 
   return methods;
